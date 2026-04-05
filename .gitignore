@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Environment Variables
+.env
+
+# Logs
+*.log
+full_debug_log.txt
+test_inference_output.txt
+
+# OS-specific
+.DS_Store
+Thumbs.db
