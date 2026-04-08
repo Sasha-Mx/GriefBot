@@ -41,10 +41,14 @@ app = create_app(
     max_concurrent_envs=4,
 )
 
+from fastapi.responses import HTMLResponse
 
-
-
-
+@app.get("/", response_class=HTMLResponse)
+def home():
+    return """
+    <h1>🕊️ GriefBot Retirement Service</h1>
+    <p>API is running successfully 🚀</p>
+    """
 # ---------------------------------------------------------------------------
 # CLI entry-point
 # ---------------------------------------------------------------------------
