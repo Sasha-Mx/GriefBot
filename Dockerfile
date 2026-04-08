@@ -13,9 +13,8 @@ WORKDIR /app/env
 
 # Install dependencies into a virtualenv
 RUN python -m venv /app/.venv && \
-    /app/.venv/bin/pip install --no-cache-dir -r server/requirements.txt && \
-    /app/.venv/bin/pip install --no-cache-dir .
-
+    /app/.venv/bin/pip install --upgrade pip && \
+    /app/.venv/bin/pip install --no-cache-dir -r server/requirements.txt
 # --- Stage 2: Runtime ---
 FROM ghcr.io/meta-pytorch/openenv-base:latest AS runtime
 
