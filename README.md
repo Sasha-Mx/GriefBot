@@ -290,4 +290,4 @@ graph LR
 
 ## License
 
-MIT — Built for Meta's OpenEnv Challenge 🏗️
+Licensed under the MIT License. Built for the **Meta x Scaler School of Technology** OpenEnv Challenge 🏗️
