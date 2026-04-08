@@ -16,7 +16,6 @@ class GriefBotAction(Action):
     task: Literal["chat_analysis", "farewell_convo", "memory_artifact"]
     analysis: Optional[Dict] = None  # For chat_analysis task
     farewell_messages: Optional[List[Dict[str, str]]] = None  # For farewell_convo task
-    farewell_convo: Optional[List[Dict[str, str]]] = None     # Alias for legacy or LLM bias
     artifact: Optional[Dict] = None  # For memory_artifact task
 
 

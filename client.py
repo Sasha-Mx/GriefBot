@@ -14,7 +14,7 @@ class GriefBotEnv(EnvClient[GriefBotAction, GriefBotObservation, GriefBotState])
 
     def _step_payload(self, action: GriefBotAction) -> Dict[str, Any]:
         """Serialize action for the /step endpoint."""
-        return {"action": action.model_dump(exclude_none=True)}
+        return action.model_dump(exclude_none=True)
 
     def _parse_result(self, payload: Dict[str, Any]) -> GriefBotObservation:
         """Deserialize observation from the API response."""

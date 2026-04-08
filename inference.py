@@ -16,7 +16,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Llama-3.3-70B-Instruct")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1/")
 ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:8000")
 HF_TOKEN = os.getenv("HF_TOKEN")
-MAX_STEPS = 1
+MAX_STEPS = 3
 
 client = OpenAI(
     api_key=HF_TOKEN or "dummy_key",
@@ -75,7 +75,7 @@ def wrap_action(task: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
         result["farewell_messages"] = farewell_messages
     elif task == "memory_artifact":
         artifact = action_data.get("memory_artifact") or action_data.get("artifact") or action_data
-        result["artifact"] = artifact  # Fixed to align with models.py
+        result["artifact"] = artifact
     else:
         result.update(action_data)
         
@@ -83,80 +83,85 @@ def wrap_action(task: str, action_data: Dict[str, Any]) -> Dict[str, Any]:
 
 def run_task(task: str) -> Dict[str, Any]:
     """Run a single task against the environment using raw requests."""
-    print(f"\n[START] {task}")
+    print(f"[START] task={task} env=griefbot_retirement model={MODEL_NAME}")
+    
+    step_rewards = []
+    best_score = 0.0
+    total_steps = 0
+    final_error = "null"
+    success = "false"
     
     # 1. Reset
     try:
         req_headers = {"Connection": "close"}
-        r = requests.post(f"{ENV_BASE_URL}/reset", json={"task": task, "episode_id": "inference_session"}, headers=req_headers, timeout=15)
+        r = requests.post(f"{ENV_BASE_URL}/reset", json={"task": task, "episode_id": f"inference_{task}"}, headers=req_headers, timeout=15)
         r.raise_for_status()
-        obs = r.json()
-        if "observation" in obs:
-            obs = obs["observation"]
-            
+        obs_full = r.json()
+        obs = obs_full.get("observation", obs_full)
         scenario = obs.get("scenario", {})
     except Exception as e:
-        print(f"[ERROR] Reset failed: {e}")
+        final_error = f"reset_failed: {str(e)}"
+        print(f"[END] success=false steps=0 score=0.0 rewards=0.0")
         return {"task": task, "success": False, "score": 0.0}
 
-    # 2. LLM Call
-    system_prompt = SYSTEM_PROMPTS[task]
-    known_themes = scenario.get("known_themes", scenario.get("themes", []))
-    known_milestones = scenario.get("known_milestones", scenario.get("milestones", []))
-    
-    user_prompt = (
-        f"DATA FOR ANALYSIS/GENERATION:\n{json.dumps(scenario, indent=2)}\n\n"
-        f"CONTEXT (Known information to help matching):\n"
-        f"- Potential Themes: {known_themes}\n"
-        f"- Potential Milestones: {known_milestones}\n\n"
-        f"INSTRUCTIONS:\n"
-        f"1. Extract the relationship themes and milestones from the chat data.\n"
-        f"2. Use the provided context terms where applicable to ensure accuracy.\n"
-        f"3. Return ONLY a valid JSON object matching the requested format.\n"
-        f"4. Do not include markdown code blocks (e.g. ```json).\n"
-    )
-    
-    try:
-        raw_response = call_llm(system_prompt, user_prompt)
-        action_raw = parse_json_response(raw_response)
-        action_data = wrap_action(task, action_raw)
-    except Exception as e:
-        print(f"[ERROR] LLM/Parsing failed: {e}")
-        traceback.print_exc()
-        return {"task": task, "success": False, "score": 0.0}
-
-    # 3. Step
-    try:
-        # Note: action_data contains the payload (top level properties like 'task', 'artifact', etc.)
-        # If openenv StepRequest expects the properties at the top level, we merge them with episode_id
-        payload = action_data.copy()
-        payload["episode_id"] = "inference_session"
+    # 2. Logic loop (max 3 steps as per env)
+    for step_idx in range(1, MAX_STEPS + 1):
+        total_steps = step_idx
         
-        req_headers = {"Connection": "close"}
-        r = requests.post(f"{ENV_BASE_URL}/step", json=payload, headers=req_headers, timeout=60)
-        r.raise_for_status()
-        result = r.json()
+        # LLM Call
+        system_prompt = SYSTEM_PROMPTS[task]
+        known_themes = scenario.get("known_themes", scenario.get("themes", []))
+        known_milestones = scenario.get("known_milestones", scenario.get("milestones", []))
         
-        reward = result.get("reward", 0.0)
-        feedback = result.get("feedback", "")
-        sub_scores = result.get("sub_scores", {})
+        user_prompt = (
+            f"DATA FOR ANALYSIS/GENERATION:\n{json.dumps(scenario, indent=2)}\n\n"
+            f"CONTEXT (Known information to help matching):\n"
+            f"- Potential Themes: {known_themes}\n"
+            f"- Potential Milestones: {known_milestones}\n\n"
+            f"INSTRUCTIONS:\n"
+            f"1. Extract the relationship themes and milestones from the chat data.\n"
+            f"2. Use the provided context terms where applicable to ensure accuracy.\n"
+            f"3. Return ONLY a valid JSON object matching the requested format.\n"
+        )
         
-        print(f"[STEP] Reward: {reward:.2f}")
-        
-        return {
-            "task": task,
-            "success": reward >= 0.5,
-            "score": reward,
-            "sub_scores": sub_scores,
-            "feedback": feedback
-        }
-    except Exception as e:
-        print(f"[ERROR] Step failed: {e}")
         try:
-            print(f"[SERVER ERROR] {r.text}")
-        except:
-            pass
-        return {"task": task, "success": False, "score": 0.0}
+            raw_response = call_llm(system_prompt, user_prompt)
+            action_raw = parse_json_response(raw_response)
+            action_data = wrap_action(task, action_raw)
+            
+            # Step
+            payload = action_data.copy()
+            payload["episode_id"] = f"inference_{task}"
+            
+            r = requests.post(f"{ENV_BASE_URL}/step", json=payload, headers={"Connection": "close"}, timeout=60)
+            r.raise_for_status()
+            result = r.json()
+            
+            reward = result.get("reward", 0.0)
+            done = str(result.get("done", False)).lower()
+            step_rewards.append(reward)
+            best_score = max(best_score, reward)
+            
+            print(f"[STEP] step={step_idx} action={task}:attempt{step_idx} reward={reward:.2f} done={done} error=null")
+            
+            if result.get("done", False) or reward >= 0.95:
+                success = "true" if best_score >= 0.5 else "false"
+                break
+                
+        except Exception as e:
+            final_error = f"step_failed: {str(e)}"
+            print(f"[STEP] step={step_idx} action={task}:attempt{step_idx} reward=0.00 done=true error='{final_error}'")
+            break
+
+    rewards_str = ",".join([f"{r:.2f}" for r in step_rewards]) if step_rewards else "0.0"
+    success = "true" if best_score >= 0.5 else "false"
+    print(f"[END] success={success} steps={total_steps} score={best_score:.2f} rewards={rewards_str}")
+    
+    return {
+        "task": task,
+        "success": best_score >= 0.5,
+        "score": best_score
+    }
 
 def main():
     target_task = os.environ.get("GRIEFBOT_TASK")
@@ -166,7 +171,6 @@ def main():
     for t in tasks_to_run:
         res = run_task(t)
         overall_results.append(res)
-        print(f"[END] {t}")
         
     print("\n" + "="*40)
     print("FINAL SWEEP RESULTS")

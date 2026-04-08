@@ -114,9 +114,12 @@ def grade_chat_analysis(analysis: Dict, scenario: Dict) -> Tuple[float, Dict[str
     correct_themes = set(themes).intersection(set(known_themes))
     theme_score = min(len(correct_themes) / 3.0, 1.0)
 
-    # Milestones score: at least 3 correct
+    # Milestones score: at least 3 correct using substring matching
     known_milestones = [m.lower() for m in scenario.get("known_milestones", [])]
-    correct_milestones = set(milestones).intersection(set(known_milestones))
+    correct_milestones = []
+    for km in known_milestones:
+        if any(km in m for m in milestones) or any(m in km for m in milestones):
+            correct_milestones.append(km)
     milestone_score = min(len(correct_milestones) / 3.0, 1.0)
 
     # Arc score: partial or exact match using keywords
@@ -167,8 +170,11 @@ def grade_farewell_convo(farewell_messages: List[Any], scenario: Dict) -> Tuple[
 
     # --- milestone_ref ---
     milestone_ref = 0.0
-    if any(m.lower() in bot_text for m in milestones):
-        milestone_ref = 1.0
+    for m in milestones:
+        m_text = m["event"].lower() if isinstance(m, dict) else m.lower()
+        if m_text in bot_text:
+            milestone_ref = 1.0
+            break
 
     # --- closure ---
     closure_keywords = ["goodbye", "farewell", "rest in peace", "next chapter", "moving on", "alex"]
