@@ -1,5 +1,4 @@
 ---
-<<<<<<< HEAD
 title: GriefBot Retirement Service
 emoji: 🕊️
 colorFrom: blue
@@ -299,18 +298,3 @@ graph LR
 ## License
 
 Licensed under the MIT License. Built for the **Meta x Scaler School of Technology** OpenEnv Challenge 🏗️
-=======
-title: Griefbot Retirement
-emoji: 🚀
-colorFrom: pink
-colorTo: pink
-sdk: docker
-pinned: false
-license: mit
-short_description: OpenEnv environment where AI agents learn to retire
-tags: 
-     - openenv
----
-
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
->>>>>>> 225add14798f55b5f9e676b62ff8462178c8f614
