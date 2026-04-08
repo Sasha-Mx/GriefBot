@@ -142,7 +142,8 @@ def run_task(task: str) -> Dict[str, Any]:
             step_rewards.append(reward)
             best_score = max(best_score, reward)
             
-            print(f"[STEP] step={step_idx} action={task}:attempt{step_idx} reward={reward:.2f} done={done} error=null")
+            action_str = json.dumps(action_data, separators=(',', ':'))[:80]
+            print(f"[STEP] step={step_idx} action={action_str} reward={reward:.2f} done={done} error=null")
             
             if result.get("done", False) or reward >= 0.95:
                 success = "true" if best_score >= 0.5 else "false"
@@ -150,7 +151,8 @@ def run_task(task: str) -> Dict[str, Any]:
                 
         except Exception as e:
             final_error = f"step_failed: {str(e)}"
-            print(f"[STEP] step={step_idx} action={task}:attempt{step_idx} reward=0.00 done=true error='{final_error}'")
+            action_str = json.dumps({"task": task, "error": "failed"}, separators=(',', ':'))[:80]
+            print(f"[STEP] step={step_idx} action={action_str} reward=0.00 done=true error='{final_error}'")
             break
 
     rewards_str = ",".join([f"{r:.2f}" for r in step_rewards]) if step_rewards else "0.0"
@@ -172,13 +174,13 @@ def main():
         res = run_task(t)
         overall_results.append(res)
         
-    print("\n" + "="*40)
-    print("FINAL SWEEP RESULTS")
-    print("="*40)
+    print("\n" + "="*40, file=sys.stderr)
+    print("FINAL SWEEP RESULTS", file=sys.stderr)
+    print("="*40, file=sys.stderr)
     for res in overall_results:
         status = "PASSED" if res["success"] else "FAILED"
-        print(f"{res['task'].ljust(18)}: {status} (Score: {res['score']:.2f})")
-    print("="*40)
+        print(f"{res['task'].ljust(18)}: {status} (Score: {res['score']:.2f})", file=sys.stderr)
+    print("="*40, file=sys.stderr)
 
 if __name__ == "__main__":
     main()

@@ -10,8 +10,12 @@ venv/
 
 # Logs
 *.log
+
+# Debug/test artifacts
 full_debug_log.txt
 test_inference_output.txt
+final_verification.log
+server_final_check.log
 
 # OS-specific
 .DS_Store

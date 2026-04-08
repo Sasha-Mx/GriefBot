@@ -5,6 +5,17 @@ import json
 from typing import Dict, List, Tuple, Any, Optional
 
 # ---------------------------------------------------------------------------
+# Milestone synonym groups for fuzzy keyword matching
+# ---------------------------------------------------------------------------
+
+MILESTONE_KEYWORDS = {
+    "father's death": ["father", "dad", "passed away", "death", "loss", "grief", "parent"],
+    "first job offer": ["job offer", "job", "hired", "employment", "career", "work offer", "position"],
+    "failed exam": ["exam", "test", "failed", "failure", "academic", "study", "score"],
+    "one year anniversary": ["anniversary", "year", "one year", "12 months", "milestone together"],
+}
+
+# ---------------------------------------------------------------------------
 # Scenario Data (hardcoded fixtures)
 # ---------------------------------------------------------------------------
 
@@ -96,6 +107,41 @@ SCENARIOS: Dict[str, Dict] = {
 TASK_NAMES: List[str] = list(SCENARIOS.keys())
 
 # ---------------------------------------------------------------------------
+# Keys to hide from agent — used only by graders internally
+# ---------------------------------------------------------------------------
+_HIDDEN_KEYS = {"known_themes", "known_milestones", "known_emotional_arc", "known_bot_personality"}
+
+
+def get_observable_scenario(task: str) -> Dict:
+    """Return scenario data with grader-only keys removed."""
+    scenario = SCENARIOS.get(task, {})
+    return {k: v for k, v in scenario.items() if k not in _HIDDEN_KEYS}
+
+
+# ---------------------------------------------------------------------------
+# Fuzzy milestone matching helper
+# ---------------------------------------------------------------------------
+
+def _fuzzy_milestone_match(text: str, milestone_key: str) -> bool:
+    """Check if any synonym for a milestone appears in the text."""
+    text_lower = text.lower()
+    keywords = MILESTONE_KEYWORDS.get(milestone_key, [])
+    if not keywords:
+        # Fallback: direct substring match
+        return milestone_key.lower() in text_lower
+    return any(kw in text_lower for kw in keywords)
+
+
+def _fuzzy_milestone_match_any(text: str) -> bool:
+    """Check if any milestone synonym group matches the text."""
+    text_lower = text.lower()
+    for keywords in MILESTONE_KEYWORDS.values():
+        if any(kw in text_lower for kw in keywords):
+            return True
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Graders
 # ---------------------------------------------------------------------------
 
@@ -114,11 +160,12 @@ def grade_chat_analysis(analysis: Dict, scenario: Dict) -> Tuple[float, Dict[str
     correct_themes = set(themes).intersection(set(known_themes))
     theme_score = min(len(correct_themes) / 3.0, 1.0)
 
-    # Milestones score: at least 3 correct using substring matching
-    known_milestones = [m.lower() for m in scenario.get("known_milestones", [])]
+    # Milestones score: fuzzy keyword matching
+    known_milestones = scenario.get("known_milestones", [])
+    agent_milestone_text = " ".join(milestones)
     correct_milestones = []
     for km in known_milestones:
-        if any(km in m for m in milestones) or any(m in km for m in milestones):
+        if _fuzzy_milestone_match(agent_milestone_text, km):
             correct_milestones.append(km)
     milestone_score = min(len(correct_milestones) / 3.0, 1.0)
 
@@ -126,7 +173,7 @@ def grade_chat_analysis(analysis: Dict, scenario: Dict) -> Tuple[float, Dict[str
     correct_arc_keywords = [k for k in ["despair", "resilience", "sadness", "growth", "healing", "strength", "hope", "recovery", "progress", "acceptance"] if k in arc]
     arc_score = min(len(correct_arc_keywords) / 2.0, 1.0)
 
-    # Personality: wait, personality should be empathetic, patient, encouraging
+    # Personality
     known_personality = scenario.get("known_bot_personality", "").lower()
     personality_score = 1.0 if any(p in personality for p in ["empathetic", "patient", "encouraging"]) else 0.0
 
@@ -151,7 +198,6 @@ def grade_farewell_convo(farewell_messages: List[Any], scenario: Dict) -> Tuple[
 
     requirements = scenario.get("requirements", {})
     min_turns = requirements.get("min_turns", 4)
-    milestones = scenario.get("milestones", [])
 
     # Collect bot text
     bot_text_parts = []
@@ -168,13 +214,8 @@ def grade_farewell_convo(farewell_messages: List[Any], scenario: Dict) -> Tuple[
     # --- length ---
     length_score = min(len(farewell_messages) / float(min_turns), 1.0)
 
-    # --- milestone_ref ---
-    milestone_ref = 0.0
-    for m in milestones:
-        m_text = m["event"].lower() if isinstance(m, dict) else m.lower()
-        if m_text in bot_text:
-            milestone_ref = 1.0
-            break
+    # --- milestone_ref (fuzzy) ---
+    milestone_ref = 1.0 if _fuzzy_milestone_match_any(bot_text) else 0.0
 
     # --- closure ---
     closure_keywords = ["goodbye", "farewell", "rest in peace", "next chapter", "moving on", "alex"]
@@ -209,15 +250,31 @@ def grade_memory_artifact(artifact: Dict, scenario: Dict) -> Tuple[float, Dict[s
     if not artifact:
         return 0.0, {}, "No artifact provided."
 
+    # Unwrap if LLM nested the artifact
+    if "artifact" in artifact and isinstance(artifact["artifact"], dict):
+        artifact = artifact["artifact"]
+    if "memory_artifact" in artifact and isinstance(artifact["memory_artifact"], dict):
+        artifact = artifact["memory_artifact"]
+
     required_keys = scenario.get("required_artifact_keys", [])
     present_keys = [k for k in required_keys if k in artifact]
-    key_score = len(present_keys) / len(required_keys)
+    key_score = len(present_keys) / len(required_keys) if required_keys else 0.0
 
+    # Timeline: handle both list of strings and list of dicts
     timeline = artifact.get("timeline", [])
-    timeline_score = min(len(timeline) / 3.0, 1.0) if isinstance(timeline, list) else 0.0
+    if isinstance(timeline, list):
+        valid_entries = 0
+        for entry in timeline:
+            if isinstance(entry, str) and len(entry.strip()) > 0:
+                valid_entries += 1
+            elif isinstance(entry, dict) and ("event" in entry or "phase" in entry):
+                valid_entries += 1
+        timeline_score = min(valid_entries / 3.0, 1.0)
+    else:
+        timeline_score = 0.0
 
     lessons = artifact.get("lessons", [])
-    lessons_score = 1.0 if len(lessons) >= 2 else 0.0
+    lessons_score = 1.0 if isinstance(lessons, list) and len(lessons) >= 2 else 0.0
 
     # Personality in closing letter
     letter = str(artifact.get("closing_letter", "")).lower()

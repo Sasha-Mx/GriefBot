@@ -16,13 +16,13 @@ from openenv_core.env_server import Environment
 
 try:
     from models import GriefBotAction, GriefBotObservation, GriefBotState
-    from tasks import SCENARIOS, TASK_NAMES, grade
+    from tasks import SCENARIOS, TASK_NAMES, grade, get_observable_scenario
 except ImportError:
     import sys
     import os
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from models import GriefBotAction, GriefBotObservation, GriefBotState
-    from tasks import SCENARIOS, TASK_NAMES, grade
+    from tasks import SCENARIOS, TASK_NAMES, grade, get_observable_scenario
 
 
 class GriefBotEnvironment(Environment):
@@ -60,7 +60,7 @@ class GriefBotEnvironment(Environment):
         requested_task = kwargs.get("task")
         
         self._task = requested_task if requested_task and requested_task in TASK_NAMES else "chat_analysis"
-        self._scenario = SCENARIOS.get(self._task, {})
+        self._scenario = get_observable_scenario(self._task)
         self._step_count = 0
         self._cumulative_reward = 0.0
         self._last_action = None
@@ -89,7 +89,7 @@ class GriefBotEnvironment(Environment):
         # Robustly synchronize task context from action if needed
         if action.task and action.task != self._task and action.task in TASK_NAMES:
             self._task = action.task
-            self._scenario = SCENARIOS[self._task]
+            self._scenario = get_observable_scenario(self._task)
 
         # Final validate (should now match if action.task was valid)
         if action.task != self._task:
