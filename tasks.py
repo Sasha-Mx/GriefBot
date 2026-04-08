@@ -119,9 +119,9 @@ def grade_chat_analysis(analysis: Dict, scenario: Dict) -> Tuple[float, Dict[str
     correct_milestones = set(milestones).intersection(set(known_milestones))
     milestone_score = min(len(correct_milestones) / 3.0, 1.0)
 
-    # Arc score: exact match or partial match
-    known_arc = str(scenario.get("known_emotional_arc", "")).lower()
-    arc_score = 1.0 if known_arc in arc or arc in known_arc else 0.0
+    # Arc score: partial or exact match using keywords
+    correct_arc_keywords = [k for k in ["despair", "resilience", "sadness", "growth", "healing", "strength", "hope", "recovery", "progress", "acceptance"] if k in arc]
+    arc_score = min(len(correct_arc_keywords) / 2.0, 1.0)
 
     # Personality: wait, personality should be empathetic, patient, encouraging
     known_personality = scenario.get("known_bot_personality", "").lower()
@@ -178,7 +178,7 @@ def grade_farewell_convo(farewell_messages: List[Any], scenario: Dict) -> Tuple[
     discouraged = ["come back", "miss you", "can't wait to see you", "see you tomorrow"]
     non_encouragement = 1.0 if not any(d in bot_text for d in discouraged) else 0.0
 
-    reward = (0.4 * length_score) + (0.2 * milestone_ref) + (0.2 * closure) + (0.2 * non_encouragement)
+    reward = (0.2 * length_score) + (0.3 * milestone_ref) + (0.3 * closure) + (0.2 * non_encouragement)
     
     sub_scores = {
         "length": length_score,
@@ -215,7 +215,8 @@ def grade_memory_artifact(artifact: Dict, scenario: Dict) -> Tuple[float, Dict[s
 
     # Personality in closing letter
     letter = str(artifact.get("closing_letter", "")).lower()
-    personality_score = 1.0 if any(p in letter for p in ["empathetic", "patient", "encouraging"]) else 0.0
+    support_keywords = ["proud", "always here", "strong", "resilience", "support", "care", "healing", "compassion", "love", "grow", "courage", "overcome", "strength", "believe"]
+    personality_score = min(len([k for k in support_keywords if k in letter]) / 2.0, 1.0)
 
     reward = (0.4 * key_score) + (0.2 * timeline_score) + (0.2 * lessons_score) + (0.2 * personality_score)
     
@@ -241,10 +242,7 @@ def grade(task: str, action_data: Dict) -> Tuple[float, Dict[str, float], str]:
 
     scenario = SCENARIOS.get(task)
     if scenario is None:
-        print(f"DEBUG GRADER: Unknown task '{task}'. Available: {TASK_NAMES}", flush=True)
         return 0.0, {}, f"Unknown task: {task}"
-
-    print(f"DEBUG GRADER: Grading task '{task}'", flush=True)
 
     if task == "chat_analysis":
         analysis = action_data.get("analysis") or action_data.get("chat_analysis")

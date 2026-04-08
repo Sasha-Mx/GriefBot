@@ -26,7 +26,7 @@ This matters because digital grief is real, and the responsible retirement of AI
 
 | # | Task | Difficulty | Description |
 |---|------|------------|-------------|
-| 1 | `chat_analysis` | 🟢 Medium | Analyze a year-long chat history to extract themes, milestones, emotional arc, and bot personality |
+| 1 | `chat_analysis` | 🟢 Easy | Analyze a year-long chat history to extract themes, milestones, emotional arc, and bot personality |
 | 2 | `farewell_convo` | 🟡 Hard | Write a multi-turn farewell dialogue that references milestones, provides closure, and avoids return hooks |
 | 3 | `memory_artifact` | 🔴 Very Hard | Generate a complete memory package with timeline, highlights, lessons, closing letter, and bot voice sample |
 
@@ -150,7 +150,7 @@ Estimated scores using Qwen2.5-72B-Instruct:
 
 | Task | Estimated Score | Difficulty |
 |------|----------------|------------|
-| `chat_analysis` | ~0.72 | 🟢 Medium |
+| `chat_analysis` | ~0.72 | 🟢 Easy |
 | `farewell_convo` | ~0.61 | 🟡 Hard |
 | `memory_artifact` | ~0.48 | 🔴 Very Hard |
 | **Overall Average** | **~0.60** | |

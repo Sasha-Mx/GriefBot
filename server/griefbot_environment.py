@@ -58,11 +58,9 @@ class GriefBotEnvironment(Environment):
         """Reset the environment, optionally selecting a specific task."""
         # Robustly pull task from kwargs (since it's no longer in the signature)
         requested_task = kwargs.get("task")
-        print(f"DEBUG: Reset called. final_choice={requested_task}, kwargs={kwargs}")
         
         self._task = requested_task if requested_task and requested_task in TASK_NAMES else "chat_analysis"
         self._scenario = SCENARIOS.get(self._task, {})
-        print(f"DEBUG: Scenario loaded for '{self._task}'. Keys: {list(self._scenario.keys())}")
         self._step_count = 0
         self._cumulative_reward = 0.0
         self._last_action = None
@@ -90,7 +88,6 @@ class GriefBotEnvironment(Environment):
 
         # Robustly synchronize task context from action if needed
         if action.task and action.task != self._task and action.task in TASK_NAMES:
-            print(f"DEBUG: Synchronizing task context to '{action.task}' from action.")
             self._task = action.task
             self._scenario = SCENARIOS[self._task]
 
@@ -116,9 +113,7 @@ class GriefBotEnvironment(Environment):
             )
 
         # Grade the action
-        print(f"DEBUG: Internal grading for task '{self._task}' with action: {self._last_action}")
         reward, sub_scores, feedback = grade(self._task, self._last_action)
-        print(f"DEBUG: Reward={reward}, Scores={sub_scores}, Feedback='{feedback}'")
 
         self._last_reward = reward
         self._last_sub_scores = sub_scores

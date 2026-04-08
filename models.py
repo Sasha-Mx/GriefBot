@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Dict, List, Literal, Optional
 
-from openenv_core.env_client import EnvClient
 from openenv_core.env_server.types import Action, Observation, State
 
 
@@ -18,7 +17,7 @@ class GriefBotAction(Action):
     analysis: Optional[Dict] = None  # For chat_analysis task
     farewell_messages: Optional[List[Dict[str, str]]] = None  # For farewell_convo task
     farewell_convo: Optional[List[Dict[str, str]]] = None     # Alias for legacy or LLM bias
-    memory_artifact: Optional[Dict] = None  # For memory_artifact task
+    artifact: Optional[Dict] = None  # For memory_artifact task
 
 
 class GriefBotObservation(Observation):

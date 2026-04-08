@@ -30,10 +30,6 @@ except ImportError:
 from fastapi import Request
 from openenv_core.env_server.http_server import create_app
 
-# Diagnostics
-import tasks, models
-print(f"DEBUG: tasks.py location: {tasks.__file__}", flush=True)
-print(f"DEBUG: models.py location: {models.__file__}", flush=True)
 
 # ---------------------------------------------------------------------------
 # Create the FastAPI app
