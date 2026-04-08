@@ -101,7 +101,7 @@ def run_task(task: str) -> Dict[str, Any]:
         scenario = obs.get("scenario", {})
     except Exception as e:
         final_error = f"reset_failed: {str(e)}"
-        print(f"[END] success=false steps=0 score=0.0 rewards=0.0")
+        print(f"[END] success=false steps=0 score=0.00 rewards=0.00")
         return {"task": task, "success": False, "score": 0.0}
 
     # 2. Logic loop (max 3 steps as per env)
@@ -110,17 +110,12 @@ def run_task(task: str) -> Dict[str, Any]:
         
         # LLM Call
         system_prompt = SYSTEM_PROMPTS[task]
-        known_themes = scenario.get("known_themes", scenario.get("themes", []))
-        known_milestones = scenario.get("known_milestones", scenario.get("milestones", []))
-        
+
         user_prompt = (
             f"DATA FOR ANALYSIS/GENERATION:\n{json.dumps(scenario, indent=2)}\n\n"
-            f"CONTEXT (Known information to help matching):\n"
-            f"- Potential Themes: {known_themes}\n"
-            f"- Potential Milestones: {known_milestones}\n\n"
             f"INSTRUCTIONS:\n"
-            f"1. Extract the relationship themes and milestones from the chat data.\n"
-            f"2. Use the provided context terms where applicable to ensure accuracy.\n"
+            f"1. Carefully read the scenario data above (including chat_excerpt if present).\n"
+            f"2. Extract or generate the required content based on the task.\n"
             f"3. Return ONLY a valid JSON object matching the requested format.\n"
         )
         
