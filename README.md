@@ -1,3 +1,13 @@
+---
+title: GriefBot Retirement Service
+emoji: 🕊️
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_port: 8000
+tags:
+  - openenv
+---
 # 🕊️ GriefBot Retirement Service
 
 > **An OpenEnv environment for gracefully retiring AI companion chatbots**
@@ -27,8 +37,8 @@ This matters because digital grief is real, and the responsible retirement of AI
 | # | Task | Difficulty | Description |
 |---|------|------------|-------------|
 | 1 | `chat_analysis` | 🟢 Easy | Analyze a year-long chat history to extract themes, milestones, emotional arc, and bot personality |
-| 2 | `farewell_convo` | 🟡 Hard | Write a multi-turn farewell dialogue that references milestones, provides closure, and avoids return hooks |
-| 3 | `memory_artifact` | 🔴 Very Hard | Generate a complete memory package with timeline, highlights, lessons, closing letter, and bot voice sample |
+| 2 | `farewell_convo` | 🟡 Medium | Write a multi-turn farewell dialogue that references milestones, provides closure, and avoids return hooks |
+| 3 | `memory_artifact` | 🔴 Hard | Generate a complete memory package with timeline, highlights, lessons, closing letter, and bot voice sample |
 
 ---
 
@@ -112,35 +122,32 @@ class GriefBotObservation(Observation):
 
 All rewards are deterministic and in the range `[0.0, 1.0]`.
 
-### Task 1: `chat_analysis` (4 sub-scores, equally weighted)
+### Task 1: `chat_analysis` (4 sub-scores, weights: themes 30%, milestones 30%, arc 20%, personality 20%)
 
 | Sub-score | Description | Calculation |
 |-----------|-------------|-------------|
-| `themes_recall` | Coverage of known themes | Fraction of 5 known themes found (case-insensitive substring) |
-| `milestones_recall` | Coverage of known milestones | Fraction of 4 milestone keywords found in response |
-| `arc_match` | Emotional arc accuracy | Hits from {despair, resilience, growth, hope, heal, recovery, progress} / 2, capped 1.0 |
-| `personality_match` | Bot personality description | Hits from {empathetic, empathy, patient, encouragi, supportive, caring, kind} / 2, capped 1.0 |
+| `themes` | Coverage of known themes | Fraction of known themes matched using fuzzy synonym groups (max 3 required for 1.0) |
+| `milestones` | Coverage of known milestones | Fraction of known milestones matched using fuzzy synonym groups (max 3 required for 1.0) |
+| `emotional_arc` | Emotional arc accuracy | Keyword hits from list of emotion words / 2, capped at 1.0 |
+| `personality` | Bot personality description | 1.0 if personality keyword group matches, else 0.0 |
 
-### Task 2: `farewell_convo` (5 sub-scores, equally weighted)
-
-| Sub-score | Description | Calculation |
-|-----------|-------------|-------------|
-| `length` | Conversation length | Message count / min_turns (4), capped 1.0 |
-| `milestone_reference` | References a milestone | 1.0 if any milestone keyword in bot text, else 0.0 |
-| `closure_signal` | Closure language | Hits from 11 closure phrases / 2, capped 1.0 |
-| `no_return_hook` | Avoids return hooks | 1.0 − 0.4 × count of 8 hook phrases, min 0.0 |
-| `empathy_tone` | Empathetic language | Hits from 12 empathy words / 3, capped 1.0 |
-
-### Task 3: `memory_artifact` (6 sub-scores, equally weighted)
+### Task 2: `farewell_convo` (4 sub-scores, weights: length 20%, milestones 30%, closure 30%, non_encouragement 20%)
 
 | Sub-score | Description | Calculation |
 |-----------|-------------|-------------|
-| `structure` | Required keys present | Non-empty keys / 6 required keys |
-| `timeline_depth` | Timeline entries | len(timeline) / 4, capped 1.0 |
-| `highlights_quality` | Milestone keywords | Keyword hits / 3, capped 1.0 |
-| `lessons_insight` | Specific vs. generic | (specific_hits/3) × max(1.0 − generic_hits×0.2, 0.3) |
-| `closing_letter` | Personal & empathetic | 0.4 if name found + empathy_hits/3 (max 0.6) |
-| `voice_fidelity` | Bot personality capture | Voice keyword hits / 3, capped 1.0 |
+| `length` | Conversation length | Message count / min_turns (4), capped at 1.0 |
+| `milestone_ref` | References a milestone | 1.0 if any milestone synonym group in bot text, else 0.0 |
+| `closure` | Closure language | 1.0 if any closure phrase found in bot text, else 0.0 |
+| `non_encouragement`| Avoids return hooks | 1.0 if no discouraged phrases found, else 0.0 |
+
+### Task 3: `memory_artifact` (4 sub-scores, weights: keys 40%, timeline 20%, lessons 20%, personality 20%)
+
+| Sub-score | Description | Calculation |
+|-----------|-------------|-------------|
+| `keys` | Required keys present | Non-empty keys / 6 required keys |
+| `timeline` | Timeline entries | Valid timeline entries (string or dict) / 3, capped at 1.0 |
+| `lessons` | Lessons presence | 1.0 if list contains >= 2 lessons, else 0.0 |
+| `personality` | Empathetic closing letter | Empathy synonym hits in closing letter / 2, capped at 1.0 |
 
 ---
 
@@ -151,8 +158,8 @@ Estimated scores using Qwen2.5-72B-Instruct:
 | Task | Estimated Score | Difficulty |
 |------|----------------|------------|
 | `chat_analysis` | ~0.72 | 🟢 Easy |
-| `farewell_convo` | ~0.61 | 🟡 Hard |
-| `memory_artifact` | ~0.48 | 🔴 Very Hard |
+| `farewell_convo` | ~0.61 | 🟡 Medium |
+| `memory_artifact` | ~0.48 | 🔴 Hard |
 | **Overall Average** | **~0.60** | |
 
 ---

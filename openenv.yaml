@@ -1,6 +1,15 @@
 spec_version: 1
 name: griefbot_retirement
-type: space
+type: env
 runtime: fastapi
 app: server.app:app
 port: 8000
+dockerfile: server/Dockerfile
+description: GriefBot Retirement Service — An OpenEnv environment for gracefully retiring AI companion chatbots.
+tasks:
+  - id: chat_analysis
+    difficulty: easy
+  - id: farewell_convo
+    difficulty: medium
+  - id: memory_artifact
+    difficulty: hard
