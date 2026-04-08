@@ -4,7 +4,7 @@ type: env
 runtime: fastapi
 app: server.app:app
 port: 8000
-dockerfile: server/Dockerfile
+dockerfile: Dockerfile
 description: GriefBot Retirement Service — An OpenEnv environment for gracefully retiring AI companion chatbots.
 tasks:
   - id: chat_analysis
