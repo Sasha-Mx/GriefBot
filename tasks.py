@@ -15,6 +15,23 @@ MILESTONE_KEYWORDS = {
     "one year anniversary": ["anniversary", "year", "one year", "12 months", "milestone together"],
 }
 
+# Theme synonym groups — LLMs often say "loss" instead of "grief", "job" instead of "career growth"
+THEME_KEYWORDS = {
+    "grief": ["grief", "loss", "mourning", "bereavement", "sorrow", "death", "passed away"],
+    "loneliness": ["loneliness", "lonely", "isolated", "alone", "solitude", "disconnected"],
+    "academic stress": ["academic", "exam", "test", "study", "school", "university", "failing", "grades"],
+    "career growth": ["career", "job", "work", "employment", "hired", "professional", "occupation", "position"],
+    "emotional support": ["support", "emotional", "comfort", "companionship", "listen", "help", "care"],
+}
+
+# Personality synonym groups — covers empathetic, warm, supportive, caring, kind, etc.
+PERSONALITY_KEYWORDS = [
+    "empathetic", "empathy", "compassionate", "compassion",
+    "patient", "patience",
+    "encouraging", "supportive", "caring", "kind", "warm",
+    "understanding", "gentle", "thoughtful", "nurturing",
+]
+
 # ---------------------------------------------------------------------------
 # Scenario Data (hardcoded fixtures)
 # ---------------------------------------------------------------------------
@@ -155,9 +172,12 @@ def grade_chat_analysis(analysis: Dict, scenario: Dict) -> Tuple[float, Dict[str
     arc = str(analysis.get("emotional_arc", "")).lower()
     personality = str(analysis.get("bot_personality", "")).lower()
 
-    # Themes score: at least 3 correct
-    known_themes = [t.lower() for t in scenario.get("known_themes", [])]
-    correct_themes = set(themes).intersection(set(known_themes))
+    # Themes score: fuzzy keyword matching — 'loss' matches 'grief', 'job' matches 'career growth'
+    agent_theme_text = " ".join(themes)
+    correct_themes = []
+    for theme_key, synonyms in THEME_KEYWORDS.items():
+        if any(syn in agent_theme_text for syn in synonyms):
+            correct_themes.append(theme_key)
     theme_score = min(len(correct_themes) / 3.0, 1.0)
 
     # Milestones score: fuzzy keyword matching
@@ -173,9 +193,8 @@ def grade_chat_analysis(analysis: Dict, scenario: Dict) -> Tuple[float, Dict[str
     correct_arc_keywords = [k for k in ["despair", "resilience", "sadness", "growth", "healing", "strength", "hope", "recovery", "progress", "acceptance"] if k in arc]
     arc_score = min(len(correct_arc_keywords) / 2.0, 1.0)
 
-    # Personality
-    known_personality = scenario.get("known_bot_personality", "").lower()
-    personality_score = 1.0 if any(p in personality for p in ["empathetic", "patient", "encouraging"]) else 0.0
+    # Personality: fuzzy match — 'caring/supportive/kind' all count
+    personality_score = 1.0 if any(p in personality for p in PERSONALITY_KEYWORDS) else 0.0
 
     reward = (0.3 * theme_score) + (0.3 * milestone_score) + (0.2 * arc_score) + (0.2 * personality_score)
     
