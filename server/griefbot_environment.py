@@ -53,12 +53,16 @@ class GriefBotEnvironment(Environment):
         self,
         seed: Optional[int] = None,
         episode_id: Optional[str] = None,
-        task: Optional[str] = None,
         **kwargs: Any,
     ) -> GriefBotObservation:
         """Reset the environment, optionally selecting a specific task."""
-        self._task = task if task and task in TASK_NAMES else "chat_analysis"
-        self._scenario = SCENARIOS[self._task]
+        # Robustly pull task from kwargs (since it's no longer in the signature)
+        requested_task = kwargs.get("task")
+        print(f"DEBUG: Reset called. final_choice={requested_task}, kwargs={kwargs}")
+        
+        self._task = requested_task if requested_task and requested_task in TASK_NAMES else "chat_analysis"
+        self._scenario = SCENARIOS.get(self._task, {})
+        print(f"DEBUG: Scenario loaded for '{self._task}'. Keys: {list(self._scenario.keys())}")
         self._step_count = 0
         self._cumulative_reward = 0.0
         self._last_action = None
@@ -79,12 +83,18 @@ class GriefBotEnvironment(Environment):
             metadata={"episode_id": episode_id or "", "seed": seed},
         )
 
-    def step(self, action: GriefBotAction) -> GriefBotObservation:
+    def step(self, action: GriefBotAction, **kwargs) -> GriefBotObservation:
         """Process one agent action and return graded observation."""
         self._step_count += 1
         self._last_action = action.model_dump(exclude_none=True)
 
-        # Validate task match
+        # Robustly synchronize task context from action if needed
+        if action.task and action.task != self._task and action.task in TASK_NAMES:
+            print(f"DEBUG: Synchronizing task context to '{action.task}' from action.")
+            self._task = action.task
+            self._scenario = SCENARIOS[self._task]
+
+        # Final validate (should now match if action.task was valid)
         if action.task != self._task:
             self._last_feedback = (
                 f"Task mismatch: expected '{self._task}', got '{action.task}'."

@@ -1,25 +1,30 @@
 import subprocess
 import time
 import os
-import signal
+import threading
 
 env = os.environ.copy()
 env["PYTHONPATH"] = "."
-# HF_TOKEN should be set in environment or .env
-# env["HF_TOKEN"] = "redacted"
-env["GRIEFBOT_TASK"] = "farewell_convo"
 env["ENV_BASE_URL"] = "http://localhost:8000"
+
+# Write server output to a file instead of PIPE to avoid buffer deadlock.
+# On Windows, subprocess.PIPE has a small buffer (~4KB). When the server
+# prints enough debug output to fill it, print() blocks — which in turn
+# blocks uvicorn's async event loop and prevents HTTP responses.
+server_log_path = os.path.join(os.path.dirname(__file__), "server_debug.log")
+server_log = open(server_log_path, "w")
 
 print("Starting server...")
 server = subprocess.Popen(
     ["py", "-3.12", "-m", "uvicorn", "server.app:app", "--port", "8000"],
-    stdout=subprocess.PIPE,
+    stdout=server_log,
     stderr=subprocess.STDOUT,
     text=True,
-    env=env
+    env=env,
 )
 
-time.sleep(15)
+print("Waiting 30s for server to start...")
+time.sleep(30)
 
 try:
     print("--- RUNNING INFERENCE ---")
@@ -27,7 +32,7 @@ try:
         ["py", "-3.12", "inference.py"],
         capture_output=True,
         text=True,
-        env=env
+        env=env,
     )
     print("STDOUT:")
     print(result.stdout)
@@ -37,9 +42,13 @@ finally:
     print("Terminating server...")
     server.terminate()
     try:
-        out, _ = server.communicate(timeout=5)
-        print("--- SERVER LOGS ---")
-        print(out)
+        server.wait(timeout=5)
     except subprocess.TimeoutExpired:
         server.kill()
         print("Server killed after timeout.")
+    server_log.close()
+
+    # Now read and print the server log
+    print("--- SERVER LOGS ---")
+    with open(server_log_path, "r") as f:
+        print(f.read())

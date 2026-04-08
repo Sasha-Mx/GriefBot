@@ -241,7 +241,10 @@ def grade(task: str, action_data: Dict) -> Tuple[float, Dict[str, float], str]:
 
     scenario = SCENARIOS.get(task)
     if scenario is None:
+        print(f"DEBUG GRADER: Unknown task '{task}'. Available: {TASK_NAMES}", flush=True)
         return 0.0, {}, f"Unknown task: {task}"
+
+    print(f"DEBUG GRADER: Grading task '{task}'", flush=True)
 
     if task == "chat_analysis":
         analysis = action_data.get("analysis") or action_data.get("chat_analysis")
