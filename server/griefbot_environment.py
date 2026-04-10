@@ -16,13 +16,13 @@ from openenv_core.env_server import Environment
 
 try:
     from models import GriefBotAction, GriefBotObservation, GriefBotState
-    from tasks import SCENARIOS, TASK_NAMES, grade, get_observable_scenario
+    from tasks import SCENARIOS, TASK_NAMES, grade, get_observable_scenario, _clamp_score
 except ImportError:
     import sys
     import os
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     from models import GriefBotAction, GriefBotObservation, GriefBotState
-    from tasks import SCENARIOS, TASK_NAMES, grade, get_observable_scenario
+    from tasks import SCENARIOS, TASK_NAMES, grade, get_observable_scenario, _clamp_score
 
 
 class GriefBotEnvironment(Environment):
@@ -77,7 +77,7 @@ class GriefBotEnvironment(Environment):
             step_count=0,
             max_steps=self.MAX_STEPS,
             done=False,
-            reward=0.0,
+            reward=_clamp_score(0.0),
             metadata={"episode_id": episode_id or "", "seed": seed},
         )
 
@@ -97,7 +97,7 @@ class GriefBotEnvironment(Environment):
                 f"Task mismatch: expected '{self._task}', got '{action.task}'."
             )
             self._last_sub_scores = {}
-            self._last_reward = 0.0
+            self._last_reward = _clamp_score(0.0)
             done = self._step_count >= self.MAX_STEPS
             self._done = done
             return GriefBotObservation(
@@ -108,7 +108,7 @@ class GriefBotEnvironment(Environment):
                 step_count=self._step_count,
                 max_steps=self.MAX_STEPS,
                 done=done,
-                reward=0.0,
+                reward=_clamp_score(0.0),
                 metadata={"error": "task_mismatch"},
             )
 
@@ -131,7 +131,7 @@ class GriefBotEnvironment(Environment):
             step_count=self._step_count,
             max_steps=self.MAX_STEPS,
             done=done,
-            reward=reward,
+            reward=_clamp_score(reward),
             metadata={
                 "cumulative_reward": self._cumulative_reward,
                 "attempts": self._step_count,

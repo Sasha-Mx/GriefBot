@@ -18,6 +18,10 @@ ENV_BASE_URL = os.getenv("ENV_BASE_URL", "http://localhost:8000")
 HF_TOKEN = os.getenv("HF_TOKEN")
 MAX_STEPS = 3
 
+def _clamp(score: float, lo: float = 0.01, hi: float = 0.99) -> float:
+    """Clamp a score to the open interval (0, 1)."""
+    return max(lo, min(hi, score))
+
 client = OpenAI(
     api_key=HF_TOKEN or "dummy_key",
     base_url=API_BASE_URL,
@@ -86,7 +90,7 @@ def run_task(task: str) -> Dict[str, Any]:
     print(f"[START] task={task} env=griefbot_retirement model={MODEL_NAME}")
     
     step_rewards = []
-    best_score = 0.0
+    best_score = 0.01
     total_steps = 0
     final_error = "null"
     success = "false"
@@ -101,8 +105,8 @@ def run_task(task: str) -> Dict[str, Any]:
         scenario = obs.get("scenario", {})
     except Exception as e:
         final_error = f"reset_failed: {str(e)}"
-        print(f"[END] success=false steps=0 score=0.00 rewards=0.00")
-        return {"task": task, "success": False, "score": 0.0}
+        print(f"[END] success=false steps=0 score=0.01 rewards=0.01")
+        return {"task": task, "success": False, "score": 0.01}
 
     # 2. Logic loop (max 3 steps as per env)
     for step_idx in range(1, MAX_STEPS + 1):
@@ -132,7 +136,8 @@ def run_task(task: str) -> Dict[str, Any]:
             r.raise_for_status()
             result = r.json()
             
-            reward = result.get("reward", 0.0)
+            reward = result.get("reward", 0.01)
+            reward = _clamp(reward)
             done = str(result.get("done", False)).lower()
             step_rewards.append(reward)
             best_score = max(best_score, reward)
@@ -147,17 +152,20 @@ def run_task(task: str) -> Dict[str, Any]:
         except Exception as e:
             final_error = f"step_failed: {str(e)}"
             action_str = json.dumps({"task": task, "error": "failed"}, separators=(',', ':'))[:80]
-            print(f"[STEP] step={step_idx} action={action_str} reward=0.00 done=true error='{final_error}'")
+            print(f"[STEP] step={step_idx} action={action_str} reward=0.01 done=true error='{final_error}'")
+            step_rewards.append(0.01)
+            best_score = max(best_score, 0.01)
             break
 
-    rewards_str = ",".join([f"{r:.2f}" for r in step_rewards]) if step_rewards else "0.0"
+    best_score = _clamp(best_score)
+    rewards_str = ",".join([f"{_clamp(r):.2f}" for r in step_rewards]) if step_rewards else "0.01"
     success = "true" if best_score >= 0.5 else "false"
     print(f"[END] success={success} steps={total_steps} score={best_score:.2f} rewards={rewards_str}")
     
     return {
         "task": task,
         "success": best_score >= 0.5,
-        "score": best_score
+        "score": _clamp(best_score)
     }
 
 def main():
