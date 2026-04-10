@@ -159,6 +159,15 @@ def _fuzzy_milestone_match_any(text: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Score clamping — submission requires strictly (0, 1), never 0.0 or 1.0
+# ---------------------------------------------------------------------------
+
+def _clamp_score(score: float, lo: float = 0.01, hi: float = 0.99) -> float:
+    """Clamp a score to the open interval (0, 1)."""
+    return max(lo, min(hi, score))
+
+
+# ---------------------------------------------------------------------------
 # Graders
 # ---------------------------------------------------------------------------
 
@@ -313,7 +322,11 @@ def grade_memory_artifact(artifact: Dict, scenario: Dict) -> Tuple[float, Dict[s
 
 
 def grade(task: str, action_data: Dict) -> Tuple[float, Dict[str, float], str]:
-    """Dispatch to the correct grader based on task name."""
+    """Dispatch to the correct grader based on task name.
+    
+    All returned scores are clamped to (0, 1) exclusive to satisfy
+    the submission validator.
+    """
     
     # Robustly handle task naming
     if task not in SCENARIOS:
@@ -324,14 +337,14 @@ def grade(task: str, action_data: Dict) -> Tuple[float, Dict[str, float], str]:
 
     scenario = SCENARIOS.get(task)
     if scenario is None:
-        return 0.0, {}, f"Unknown task: {task}"
+        return 0.01, {}, f"Unknown task: {task}"
 
     if task == "chat_analysis":
         analysis = action_data.get("analysis") or action_data.get("chat_analysis")
         if not analysis and "themes" in action_data:
             analysis = action_data
         analysis = analysis or {}
-        return grade_chat_analysis(analysis, scenario)
+        reward, sub_scores, feedback = grade_chat_analysis(analysis, scenario)
         
     elif task == "farewell_convo":
         farewell_messages = (
@@ -347,14 +360,19 @@ def grade(task: str, action_data: Dict) -> Tuple[float, Dict[str, float], str]:
             farewell_messages = [action_data]
             
         farewell_messages = farewell_messages or []
-        return grade_farewell_convo(farewell_messages, scenario)
+        reward, sub_scores, feedback = grade_farewell_convo(farewell_messages, scenario)
         
     elif task == "memory_artifact":
         artifact = action_data.get("memory_artifact") or action_data.get("artifact")
         if not artifact and "title" in action_data and "closing_letter" in action_data:
             artifact = action_data
         artifact = artifact or {}
-        return grade_memory_artifact(artifact, scenario)
+        reward, sub_scores, feedback = grade_memory_artifact(artifact, scenario)
         
     else:
-        return 0.0, {}, f"No grader for task: {task}"
+        return 0.01, {}, f"No grader for task: {task}"
+
+    # Clamp final reward and all sub-scores to strict (0, 1)
+    reward = _clamp_score(reward)
+    sub_scores = {k: _clamp_score(v) for k, v in sub_scores.items()}
+    return reward, sub_scores, feedback
