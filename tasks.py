@@ -203,7 +203,8 @@ def grade_chat_analysis(analysis: Dict, scenario: Dict) -> Tuple[float, Dict[str
     arc_score = min(len(correct_arc_keywords) / 2.0, 1.0)
 
     # Personality: fuzzy match — 'caring/supportive/kind' all count
-    personality_score = 1.0 if any(p in personality for p in PERSONALITY_KEYWORDS) else 0.0
+    personality_hits = sum(1 for p in PERSONALITY_KEYWORDS if p in personality)
+    personality_score = min(personality_hits / 2.0, 1.0)
 
     reward = (0.3 * theme_score) + (0.3 * milestone_score) + (0.2 * arc_score) + (0.2 * personality_score)
     
@@ -243,11 +244,16 @@ def grade_farewell_convo(farewell_messages: List[Any], scenario: Dict) -> Tuple[
     length_score = min(len(farewell_messages) / float(min_turns), 1.0)
 
     # --- milestone_ref (fuzzy) ---
-    milestone_ref = 1.0 if _fuzzy_milestone_match_any(bot_text) else 0.0
+    milestone_match_count = sum(
+        1 for keywords in MILESTONE_KEYWORDS.values()
+        if any(kw in bot_text for kw in keywords)
+    )
+    milestone_ref = min(milestone_match_count / 2.0, 1.0)
 
     # --- closure ---
     closure_keywords = ["goodbye", "farewell", "rest in peace", "next chapter", "moving on", "alex"]
-    closure = 1.0 if any(cw in bot_text for cw in closure_keywords) else 0.0
+    closure_hits = sum(1 for cw in closure_keywords if cw in bot_text)
+    closure = min(closure_hits / 2.0, 1.0)
 
     # --- non_encouragement ---
     discouraged = ["come back", "miss you", "can't wait to see you", "see you tomorrow"]
@@ -302,7 +308,7 @@ def grade_memory_artifact(artifact: Dict, scenario: Dict) -> Tuple[float, Dict[s
         timeline_score = 0.0
 
     lessons = artifact.get("lessons", [])
-    lessons_score = 1.0 if isinstance(lessons, list) and len(lessons) >= 2 else 0.0
+    lessons_score = min(len(lessons) / 3.0, 1.0) if isinstance(lessons, list) else 0.0
 
     # Personality in closing letter
     letter = str(artifact.get("closing_letter", "")).lower()

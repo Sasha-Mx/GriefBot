@@ -28,6 +28,9 @@ class GriefBotObservation(Observation):
     sub_scores: Dict[str, float] = {}
     step_count: int = 0
     max_steps: int = 3
+    done: bool = False
+    reward: float = 0.0
+    metadata: Dict = {}
 
 
 class GriefBotState(State):

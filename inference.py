@@ -160,7 +160,7 @@ def run_task(task: str) -> Dict[str, Any]:
     best_score = _clamp(best_score)
     rewards_str = ",".join([f"{_clamp(r):.2f}" for r in step_rewards]) if step_rewards else "0.01"
     success = "true" if best_score >= 0.5 else "false"
-    print(f"[END] success={success} steps={total_steps} score={best_score:.2f} rewards={rewards_str}")
+    print(f"[END] success={success} steps={total_steps} score={best_score:.3f} rewards={rewards_str}")
     
     return {
         "task": task,
